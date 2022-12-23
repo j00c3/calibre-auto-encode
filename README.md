@@ -9,3 +9,5 @@ I don't run Calibre desktop application, so the only way to force the UTF-8 enco
 1. Watches the Calibre library directory and subdirectories for creation of new *.epub files.
 2. If a new *.epub file is detected, Calibre CLI tool is run to force UTF-8 encoding on the ePub file.
 3. The modified file overwrites the original file.
+
+Credit to @mastro35 for the inspo and [helping me get started with this project](https://thepythoncorner.com/posts/2019-01-13-how-to-create-a-watchdog-in-python-to-look-for-filesystem-changes/). 
