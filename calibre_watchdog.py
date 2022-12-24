@@ -4,16 +4,18 @@ from watchdog.events import PatternMatchingEventHandler
 
 def validateArgs():
     parser = argparse.ArgumentParser(description = 'Auto-encode downloaded ePub files to UTF-8')
-    parser.add_argument('-p', '--path', required = True, dest = 'library_path', help = 'Path to Calibre library directory')
+    parser.add_argument('-l', '--library', required = True, dest = 'library_path', help = 'Path to Calibre library directory')
+    parser.add_argument('-p', '--plugin', required = True, dest = 'plugin_path', help = 'Path to Modify ePub plugin directory')
     args = parser.parse_args()
     library_path = args.library_path
+    global plugin_path
+    plugin_path = args.plugin_path
 
-    if not os.path.exists(library_path):
-        sys.exit(f"{library_path} does not exist. Please double check your library path.")
-    elif not os.path.exists(library_path + "/metadata.db"):
-        sys.exit(f"Calibre library database file does not exists. Please double check your library path.")
-    else:
-        return library_path
+    checkCalibreDebugInstallation()
+    checkLibraryLocation(library_path)
+    checkPluginInstallation(plugin_path)
+
+    return library_path
 
 def checkCalibreDebugInstallation():
     calibreDebugInfo = subprocess.run(['which', 'calibre-debug'], capture_output=True)
@@ -22,13 +24,27 @@ def checkCalibreDebugInstallation():
     else:
         return True
 
+def checkLibraryLocation(library_path):
+    if not os.path.exists(library_path):
+        sys.exit(f"{library_path} does not exist. Please double check your library path.")
+    elif not os.path.exists(library_path + "/metadata.db"):
+        sys.exit(f"Calibre library database file does not exists. Please double check your library path.")
+    else:
+        return True
+
+def checkPluginInstallation(plugin_path):
+    if not os.path.exists(plugin_path + "/commandline/me.py"):
+        sys.exit("Modify ePub plugin commandline tool does not exist. Please double check your Modify ePub plugin path.\n\
+            The plugin can be found at https://github.com/kiwidude68/calibre_plugins/tree/main/modify_epub")
+    else:
+        return True
+
 def on_created(event):
     print(f"\"{event.src_path}\" has been created. Calling Modify ePub CLI...")
-    subprocess.run(["calibre-debug", "/root/modify_epub_plugin/commandline/me.py", "--", event.src_path, "--encode_html_utf8"])
+    subprocess.run(["calibre-debug", plugin_path + "/commandline/me.py", "--", event.src_path, "--encode_html_utf8"])
 
-def main():
-    checkCalibreDebugInstallation()
-    path = validateArgs()
+def main():    
+    calibre_library_path = validateArgs()
 
     patterns = ["*.epub"]
     ignore_patterns = None
@@ -40,7 +56,7 @@ def main():
 
     go_recursively = True
     my_observer = Observer()
-    my_observer.schedule(my_event_handler, path, recursive=go_recursively)
+    my_observer.schedule(my_event_handler, calibre_library_path, recursive=go_recursively)
 
     my_observer.start()
 
