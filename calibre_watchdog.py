@@ -18,11 +18,11 @@ def validateArgs():
     return library_path
 
 def checkCalibreDebugInstallation():
-    calibreDebugInfo = subprocess.run(['which', 'calibre-debug'], capture_output=True)
-    if calibreDebugInfo.returncode != 0:
-        sys.exit("calibre-debug not found. Is the Calibre Content Server installed?")
-    else:
-        return True
+    try:
+        subprocess.check_output(['which', 'calibre-debug'])
+    except subprocess.CalledProcessError as e:
+        print("calibre-debug not found. Is the Calibre Content Server installed?")
+        sys.exit(1)
 
 def checkLibraryLocation(library_path):
     if not os.path.exists(library_path):
@@ -40,8 +40,12 @@ def checkPluginInstallation(plugin_path):
         return True
 
 def on_created(event):
-    print(f"\"{event.src_path}\" has been created. Calling Modify ePub CLI...")
-    subprocess.run(["calibre-debug", plugin_path + "/commandline/me.py", "--", event.src_path, "--encode_html_utf8"])
+    print(f"New file \"{event.src_path}\" has been created. Calling Modify ePub CLI...")
+    process_output = subprocess.check_output(["calibre-debug", plugin_path + "/commandline/me.py", "--", event.src_path, "--encode_html_utf8"], text=True)
+    if "BadZipfile" in process_output:
+        print('File is not a valid ePub file!')
+    else:
+        print(process_output)
 
 def main():    
     calibre_library_path = validateArgs()
