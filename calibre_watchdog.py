@@ -28,7 +28,7 @@ def on_created(event):
 
 def main():
     checkCalibreDebugInstallation()
-    validateArgs()
+    path = validateArgs()
 
     patterns = ["*.epub"]
     ignore_patterns = None
@@ -38,7 +38,6 @@ def main():
     my_event_handler = PatternMatchingEventHandler(patterns, ignore_patterns, ignore_directories, case_sensitive)
     my_event_handler.on_created = on_created
 
-    path = "."
     go_recursively = True
     my_observer = Observer()
     my_observer.schedule(my_event_handler, path, recursive=go_recursively)
