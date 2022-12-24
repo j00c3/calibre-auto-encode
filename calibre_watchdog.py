@@ -1,12 +1,18 @@
-import time, subprocess
-from sys import exit
+import time, subprocess, sys
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
+
+def validateArgs():
+    if len(sys.argv) == 2:
+        return
+    else:
+        print(USAGE)
+        sys.exit(0)
 
 def checkCalibreDebugInstallation():
     calibreDebugInfo = subprocess.run(['which', 'calibre-debug'], capture_output=True)
     if calibreDebugInfo.returncode != 0:
-        exit("calibre-debug not found. Is the Calibre Content Server installed?")
+        sys.exit("calibre-debug not found. Is the Calibre Content Server installed?")
     else:
         return True
 
