@@ -1,10 +1,16 @@
-import time, subprocess, sys
+import time, subprocess, sys, os
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 
 def validateArgs():
     if len(sys.argv) == 2:
-        return
+        library_path = sys.argv[1]
+        if not os.path.exists(library_path):
+            sys.exit(f"{library_path} does not exist. Please double check your library path.")
+        elif not os.path.exists(library_path + "/metadata.db"):
+            sys.exit(f"Calibre library database does not exists. Please double check your library path.")
+        else:
+            return True
     else:
         print(USAGE)
         sys.exit(0)
