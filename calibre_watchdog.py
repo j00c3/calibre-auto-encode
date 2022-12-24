@@ -27,7 +27,7 @@ def on_created(event):
     subprocess.run(["calibre-debug", "/root/modify_epub_plugin/commandline/me.py", "--", event.src_path, "--encode_html_utf8"])
 
 def main():
-    checkCalibreDebugInstallation():
+    checkCalibreDebugInstallation()
     validateArgs()
 
     patterns = ["*.epub"]
