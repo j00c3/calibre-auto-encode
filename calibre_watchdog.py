@@ -1,6 +1,7 @@
 import time, subprocess, sys, os, argparse, logging
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
+from watchdog.events import LoggingEventHandler
 
 log_path = f"{os.getcwd()}/watchdog.log"
 print(log_path)
@@ -9,18 +10,20 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', datefmt='
 
 def validateArgs():
     parser = argparse.ArgumentParser(description = 'Auto-encode downloaded ePub files to UTF-8')
+    parser.add_argument('-d', '--download', required = True, dest = 'download_path', help = 'Path to Sabnzbd books download directory')
     parser.add_argument('-l', '--library', required = True, dest = 'library_path', help = 'Path to Calibre library directory')
     parser.add_argument('-p', '--plugin', required = True, dest = 'plugin_path', help = 'Path to Modify ePub plugin directory')
     args = parser.parse_args()
+    global plugin_path, download_path, library_path
+    download_path = args.download_path
     library_path = args.library_path
-    global plugin_path
     plugin_path = args.plugin_path
 
     checkCalibreDebugInstallation()
-    checkLibraryLocation(library_path)
+    checkPaths(download_path, library_path)
     checkPluginInstallation(plugin_path)
 
-    return library_path
+    return download_path
 
 def checkCalibreDebugInstallation():
     try:
@@ -30,52 +33,61 @@ def checkCalibreDebugInstallation():
         logging.error("`which calibre-debug` failed. Calibre Content Server may not be installed")
         sys.exit(1)
 
-def checkLibraryLocation(library_path):
+def checkPaths(download_path, library_path):
     if not os.path.exists(library_path + "/metadata.db"):
-        logging.error("Calibre library metadata database lookup failed.")
-        sys.exit(f"Calibre library database file does not exist, or the library path is incorrect. Please double check your library path.")
+        logging.error("Library folder does not exist")
+        sys.exit(f"Library path does not exist, or the path is incorrect. Please double check your parameter.")
+    elif not os.path.exists(download_path):
+        logging.error("Download folder does not exist")
+        sys.exit(f"Download path does not exist, or the path is incorrect. Please double check your parameter.")
     else:
         return True
 
 def checkPluginInstallation(plugin_path):
     if not os.path.exists(plugin_path + "/commandline/me.py"):
-        logging.error("Modify ePub plugin CLI tools lookup failed.")
+        logging.error("Modify ePub plugin CLI tools lookup failed")
         sys.exit("Modify ePub plugin commandline tool does not exist. Please double check your Modify ePub plugin path.\n\
             The plugin can be found at https://github.com/kiwidude68/calibre_plugins/tree/main/modify_epub")
     else:
         return True
 
 def on_created(event):
-    print(f"New file \"{event.src_path}\" has been created. Calling Modify ePub CLI...")
-    process_output = subprocess.check_output(["calibre-debug", plugin_path + "/commandline/me.py", "--", event.src_path, "--encode_html_utf8"], text=True)
-    if "BadZipfile" in process_output:
-        logging.error(f"Modification of {event.src_path} failed. Not a valid ePub file.")
-        print('Error: File is not a valid ePub file.')
-    elif "FileNotFoundError" in process_output:
-        logging.error(f"Modification of {event.src_path} failed. File may have been renamed.")
-        print('Error: File not found; it may have been renamed.')
+    print(f"New ePub file \"{event.src_path}\" detected. Calling Modify ePub CLI...")
+    modify_process_output = subprocess.check_output(["calibre-debug", plugin_path + "/commandline/me.py", "--", event.src_path, "--encode_html_utf8"], text=True)
+    if "BadZipfile" in modify_process_output: 
+        logging.error(f"Modification of {event.src_path} failed. Not a valid ePub file")
+        print('Error: File is not a valid ePub file')
+        return
+    elif "FileNotFoundError" in modify_process_output:
+        logging.error(f"Modification of {event.src_path} failed. File may have been renamed or moved")
+        print('Error: File not found; it may have been renamed or moved')
+        return
+    elif "not changed" in modify_process_output:
+        logging.info(f"{event.src_path} not modified. Looks like it was already UTF-8 encoded")
     else:
-        logging.info(f"Successfully modified {event.src_path}.")
-        print(process_output)
-        
+        print(modify_process_output)
+        logging.info(f"Successfully modified {event.src_path}. Importing to Calibre library...")
+        import_process_output = subprocess.check_output(["calibredb", "add", f"--with-library={library_path}", event.src_path], text=True)
+        if "Added" in import_process_output:
+            print(import_process_output)
+            logging.info(f"Successfully imported {event.src_path} into to Calibre library")
+        else:
+            logging.warning(import_process_output)
+
 def main():
     logging.info('Watchdog started')
-    calibre_library_path = validateArgs()
+    validateArgs()
 
     patterns = ["*.epub"]
     ignore_patterns = None
-    ignore_directories = True
+    ignore_directories = False
     case_sensitive = True
 
     my_event_handler = PatternMatchingEventHandler(patterns, ignore_patterns, ignore_directories, case_sensitive)
     my_event_handler.on_created = on_created
-    my_event_handler.on_moved = on_moved
-    my_event_handler.on_modified = on_modified
-    my_event_handler.on_any_event = on_any_event
 
     my_observer = Observer()
-    my_observer.schedule(my_event_handler, calibre_library_path, recursive=True)
-
+    my_observer.schedule(my_event_handler, download_path, recursive=True)
     my_observer.start()
 
     try:
