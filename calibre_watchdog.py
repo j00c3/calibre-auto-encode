@@ -1,15 +1,23 @@
-import time, subprocess, sys, os, argparse, logging
+import time, subprocess, sys, argparse, logging
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.events import LoggingEventHandler
+<<<<<<< Updated upstream
+=======
 
-log_path = f"{os.getcwd()}/watchdog.log"
-print(log_path)
+# set your own log path and name
+log_path = "watchdog.log"
+>>>>>>> Stashed changes
+
 logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
     level=logging.DEBUG, filename=log_path, filemode='a')
 
 def validateArgs():
+<<<<<<< Updated upstream
     parser = argparse.ArgumentParser(description = 'Auto-encode downloaded ePub files to UTF-8')
+=======
+    parser = argparse.ArgumentParser(description = 'Auto-encode downloaded ePub files to UTF-8 then import to Calibre library')
+>>>>>>> Stashed changes
     parser.add_argument('-d', '--download', required = True, dest = 'download_path', help = 'Path to Sabnzbd books download directory')
     parser.add_argument('-l', '--library', required = True, dest = 'library_path', help = 'Path to Calibre library directory')
     parser.add_argument('-p', '--plugin', required = True, dest = 'plugin_path', help = 'Path to Modify ePub plugin directory')
@@ -54,7 +62,11 @@ def checkPluginInstallation(plugin_path):
 def on_created(event):
     print(f"New ePub file \"{event.src_path}\" detected. Calling Modify ePub CLI...")
     modify_process_output = subprocess.check_output(["calibre-debug", plugin_path + "/commandline/me.py", "--", event.src_path, "--encode_html_utf8"], text=True)
+<<<<<<< Updated upstream
     if "BadZipfile" in modify_process_output: 
+=======
+    if "BadZipfile" in modify_process_output:
+>>>>>>> Stashed changes
         logging.error(f"Modification of {event.src_path} failed. Not a valid ePub file")
         print('Error: File is not a valid ePub file')
         return
