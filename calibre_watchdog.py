@@ -79,10 +79,10 @@ def import_epub_to_calibre(new_book_path):
         logging.warning(import_process_output)
 
 def delete_successful_imports(new_book_path):
-    logging.info(f"Deleting \"{new_book_path}\" from the download folder...")
     new_book_path_array = new_book_path.split('/')
     new_book_path_array.pop()
     new_book_parent_dir = "/".join(new_book_path_array)
+    logging.info(f"Deleting \"{new_book_parent_dir}\" from the download folder...")
     try:
         shutil.rmtree(new_book_parent_dir)
         logging.info(f"Successfully deleted \"{new_book_parent_dir}\"")
