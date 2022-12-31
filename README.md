@@ -14,17 +14,19 @@ I had originally designed this to have Watchdog look for *.epub file creation ev
 
 ### Workflow
 
-1. Watches the sabnzbd download directory and subdirectories for creation of new *.epub files.
+1. Watches the sabnzbd download directory and subdirectories for creation of a new *.epub file.
 2. If a new *.epub file is detected, Calibre CLI tool is run to force UTF-8 encoding on the ePub file.
+	1. If the ePub file is already UTF-8 encoded, then move to step 4.
 3. The modified file overwrites the original file.
-4. The motified file is added to the Calibre library.
+4. The modified file is added to the Calibre library.
+5. If the `--delete_completed` parameter is set, then the directory containing the new ePub file is deleted from the download directory
 
 ## Recommended Workflow Setup
 
 1. Install the script in your Calibre Content Server jail.
 2. Do not enable Calibre integration in your Readarr's Media Management setup.
 3. Do not enable automatic importing of your ePub in Readarr's Download Clients setup.
-4. Enable this script as a boot up service.
+4. Enable this script as a boot up service with all the appropriate parameters. Ex. `calibre_watchdog.py -d /downloads/books -l /media/books/ -p /root/modify_epub_plugin/ --delete_completed`
 
 ## Credits
 
