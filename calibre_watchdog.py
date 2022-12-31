@@ -1,4 +1,4 @@
-import time, subprocess, sys, os, argparse, logging
+import time, subprocess, sys, os, argparse, logging, shutil
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 
@@ -8,24 +8,27 @@ log_path = "watchdog.log"
 logging.basicConfig(format='%(asctime)s - %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S',
     level=logging.DEBUG, filename=log_path, filemode='a')
 
-def validateArgs():
+def validate_args():
     parser = argparse.ArgumentParser(description = 'Auto-encode downloaded ePub files to UTF-8 then import to Calibre library')
-    parser.add_argument('-d', '--download', required = True, dest = 'download_path', help = 'Path to Sabnzbd books download directory')
-    parser.add_argument('-l', '--library', required = True, dest = 'library_path', help = 'Path to Calibre library directory')
-    parser.add_argument('-p', '--plugin', required = True, dest = 'plugin_path', help = 'Path to Modify ePub plugin directory')
+    parser.add_argument('-d', '--download-path', required=True, dest='download_path', help='Path to Sabnzbd books download directory')
+    parser.add_argument('-l', '--library-path', required=True, dest='library_path', help='Path to Calibre library directory')
+    parser.add_argument('-p', '--plugin-path', required=True, dest='plugin_path', help='Path to Modify ePub plugin directory')
+    parser.add_argument('--delete_completed', action=argparse.BooleanOptionalAction, default=False, help='Delete the directory of newly downloaded book if UTF-8 conversion and Calibre import are successful')
     args = parser.parse_args()
-    global plugin_path, download_path, library_path
+    global delete_completed
+    delete_completed = args.delete_completed
+    global plugin_path, library_path
     download_path = args.download_path
     library_path = args.library_path
     plugin_path = args.plugin_path
 
-    checkCalibreDebugInstallation()
-    checkPaths(download_path, library_path)
-    checkPluginInstallation(plugin_path)
+    check_calibre_installation()
+    check_paths(download_path, library_path)
+    check_plugin_installation(plugin_path)
 
     return download_path
 
-def checkCalibreDebugInstallation():
+def check_calibre_installation():
     try:
         subprocess.check_output(['which', 'calibre-debug'])
     except subprocess.CalledProcessError as e:
@@ -33,7 +36,7 @@ def checkCalibreDebugInstallation():
         logging.error("`which calibre-debug` failed. Calibre Content Server may not be installed")
         sys.exit(1)
 
-def checkPaths(download_path, library_path):
+def check_paths(download_path, library_path):
     if not os.path.exists(library_path + "/metadata.db"):
         logging.error("Library folder does not exist")
         sys.exit(f"Library path does not exist, or the path is incorrect. Please double check your parameter.")
@@ -43,7 +46,7 @@ def checkPaths(download_path, library_path):
     else:
         return True
 
-def checkPluginInstallation(plugin_path):
+def check_plugin_installation(plugin_path):
     if not os.path.exists(plugin_path + "/commandline/me.py"):
         logging.error("Modify ePub plugin CLI tools lookup failed")
         sys.exit("Modify ePub plugin commandline tool does not exist. Please double check your Modify ePub plugin path.\n\
@@ -52,31 +55,43 @@ def checkPluginInstallation(plugin_path):
         return True
 
 def on_created(event):
-    print(f"New ePub file \"{event.src_path}\" detected. Calling Modify ePub CLI...")
     modify_process_output = subprocess.check_output(["calibre-debug", plugin_path + "/commandline/me.py", "--", event.src_path, "--encode_html_utf8"], text=True)
     if "BadZipfile" in modify_process_output:
-        logging.error(f"Modification of {event.src_path} failed. Not a valid ePub file")
-        print('Error: File is not a valid ePub file')
+        logging.error(f"Modification of \"{event.src_path}\" failed. Not a valid ePub file")
         return
     elif "FileNotFoundError" in modify_process_output:
-        logging.error(f"Modification of {event.src_path} failed. File may have been renamed or moved")
-        print('Error: File not found; it may have been renamed or moved')
+        logging.error(f"Modification of \"{event.src_path}\" failed. File may have been renamed or moved")
         return
     elif "not changed" in modify_process_output:
-        logging.info(f"{event.src_path} not modified. Looks like it was already UTF-8 encoded")
+        logging.info(f"\"{event.src_path}\" not modified. Looks like it was already UTF-8 encoded")
+        import_epub_to_calibre(event.src_path)
     else:
-        print(modify_process_output)
-        logging.info(f"Successfully modified {event.src_path}. Importing to Calibre library...")
-        import_process_output = subprocess.check_output(["calibredb", "add", f"--with-library={library_path}", event.src_path], text=True)
-        if "Added" in import_process_output:
-            print(import_process_output)
-            logging.info(f"Successfully imported {event.src_path} into to Calibre library")
-        else:
-            logging.warning(import_process_output)
+        logging.info(f"Successfully modified \"{event.src_path}\". Importing to Calibre library...")
+        import_epub_to_calibre(event.src_path)
+
+def import_epub_to_calibre(new_book_path):
+    import_process_output = subprocess.check_output(["calibredb", "add", f"--with-library={library_path}", new_book_path], text=True)
+    if "Added" in import_process_output:
+        logging.info(f"Successfully imported \"{new_book_path}\" into to Calibre library.")
+        if delete_completed:
+            delete_successful_imports(new_book_path)
+    else:
+        logging.warning(import_process_output)
+
+def delete_successful_imports(new_book_path):
+    logging.info(f"Deleting \"{new_book_path}\" from the download folder...")
+    new_book_path_array = new_book_path.split('/')
+    new_book_path_array.pop()
+    new_book_parent_dir = "/".join(new_book_path_array)
+    try:
+        shutil.rmtree(new_book_parent_dir)
+        logging.info(f"Successfully deleted \"{new_book_parent_dir}\"")
+    except:
+        logging.error(f"Unable to delete \"{new_book_parent_dir}\"...")
 
 def main():
     logging.info('Watchdog started')
-    validateArgs()
+    download_path = validate_args()
 
     patterns = ["*.epub"]
     ignore_patterns = None
