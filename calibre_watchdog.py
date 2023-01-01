@@ -95,7 +95,7 @@ def main():
 
     patterns = ["*.epub"]
     ignore_patterns = None
-    ignore_directories = False
+    ignore_directories = True
     case_sensitive = True
 
     my_event_handler = PatternMatchingEventHandler(patterns, ignore_patterns, ignore_directories, case_sensitive)
